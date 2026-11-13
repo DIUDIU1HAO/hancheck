@@ -9,7 +9,7 @@ from __future__ import annotations
 import html
 import json
 from collections import OrderedDict
-from typing import Dict, Iterable, List, Sequence
+from typing import Iterable, List, Sequence
 
 from . import __version__
 from .rules import ERROR, INFO, RULES, SEVERITY_ORDER, WARNING, Finding

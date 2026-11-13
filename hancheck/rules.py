@@ -14,7 +14,7 @@ import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from .lexer import COMMENT, CODE, PROSE, STRING, Lang, LineIndex, Span, tokenize
+from .lexer import CODE, PROSE, STRING, Lang, LineIndex, Span, tokenize
 
 ERROR = "error"
 WARNING = "warning"
@@ -300,13 +300,14 @@ def _mk(
     offset: int,
     message: str,
     edit: Optional[Tuple[int, int, Optional[str]]] = None,
+    severity: Optional[str] = None,
 ) -> Finding:
     snippet, caret = _snippet(text, offset, index)
     line, col = index.at(offset)
     meta = RULES[rule]
     return Finding(
         rule=rule,
-        severity=meta.severity,
+        severity=severity or meta.severity,
         path=path,
         line=line,
         col=col,
@@ -334,6 +335,8 @@ def check_text(text: str, path: str, lang: Lang) -> List[Finding]:
 
         # ---- CN001 / CN011：只在代码结构区域判定 ----------------------------
         if kind == CODE:
+            # 宽松格式（YAML/HTML 等）里的全角标点可能属于正文，只提示不修复
+            strict = lang.punct_severity == "error"
             for i, ch in enumerate(segment):
                 if ch in FULLWIDTH_PUNCT:
                     findings.append(
@@ -344,7 +347,8 @@ def check_text(text: str, path: str, lang: Lang) -> List[Finding]:
                             index,
                             base + i,
                             f"全角「{ch}」不能作为语法符号使用",
-                            edit=(base + i, 1, FULLWIDTH_PUNCT[ch]),
+                            edit=(base + i, 1, FULLWIDTH_PUNCT[ch]) if strict else None,
+                            severity=lang.punct_severity,
                         )
                     )
                 elif ch in MANUAL_PUNCT:
@@ -356,6 +360,7 @@ def check_text(text: str, path: str, lang: Lang) -> List[Finding]:
                             index,
                             base + i,
                             f"全角「{ch}」出现在代码结构中，需人工确认",
+                            severity=lang.punct_severity,
                         )
                     )
                 elif _is_fullwidth_alnum(ch):
@@ -367,7 +372,8 @@ def check_text(text: str, path: str, lang: Lang) -> List[Finding]:
                             index,
                             base + i,
                             f"全角字符「{ch}」出现在代码结构中",
-                            edit=(base + i, 1, chr(ord(ch) - 0xFEE0)),
+                            edit=(base + i, 1, chr(ord(ch) - 0xFEE0)) if strict else None,
+                            severity=lang.punct_severity,
                         )
                     )
 

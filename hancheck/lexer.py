@@ -66,6 +66,9 @@ class Lang:
     prose: bool = False
     # 围栏代码块的标记
     fences: Sequence[str] = ("```",)
+    # 全角标点的定级。YAML/TOML/HTML 这类允许裸标量的格式里，
+    # 中文标点出现在值是合法的，只能降为 info
+    punct_severity: str = "error"
 
 
 def _c(*pairs) -> List[Delim]:
@@ -84,8 +87,7 @@ _HASH = _c(("#", "\n"))
 _SLASH = _c(("//", "\n"))
 _CBLOCK = _c(("/*", "*/"))
 
-LANGS: Dict[str, Lang] = {
-    ".py": _lang("python", _HASH + _s(('"""', '"""'), ("'''", "'''"), ('"', '"'), ("'", "'"))),
+LANGS: Dict[str, Lang] = {    ".py": _lang("python", _HASH + _s(('"""', '"""'), ("'''", "'''"), ('"', '"'), ("'", "'"))),
     ".pyi": _lang("python", _HASH + _s(('"""', '"""'), ("'''", "'''"), ('"', '"'), ("'", "'"))),
     ".js": _lang("javascript", _SLASH + _CBLOCK + _s(('"', '"'), ("'", "'"), ("`", "`"))),
     ".jsx": _lang("javascript", _SLASH + _CBLOCK + _s(('"', '"'), ("'", "'"), ("`", "`"))),
@@ -130,6 +132,77 @@ LANGS: Dict[str, Lang] = {
     ".txt": _lang("text", [], prose=True),
 }
 
+# 这些格式允许裸标量/正文直接出现中文标点（YAML 的 description、HTML 的文本节点），
+# 全角标点在值是合法的，只能降为 info，否则整份配置会被误报
+_RELAXED_EXTS = {
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".ini",
+    ".cfg",
+    ".env",
+    ".html",
+    ".htm",
+    ".vue",
+    ".css",
+    ".scss",
+    ".md",
+    ".markdown",
+    ".mdx",
+    ".rst",
+    ".txt",
+}
+for _ext in _RELAXED_EXTS:
+    if _ext in LANGS:
+        LANGS[_ext].punct_severity = "info"
+
+# Markdown 围栏语言标记 -> 用于二次切分的扩展名
+TAG_LANGS = {
+    "py": ".py",
+    "python": ".py",
+    "python3": ".py",
+    "js": ".js",
+    "javascript": ".js",
+    "mjs": ".js",
+    "ts": ".ts",
+    "typescript": ".ts",
+    "tsx": ".tsx",
+    "jsx": ".jsx",
+    "json": ".json",
+    "jsonc": ".jsonc",
+    "yaml": ".yaml",
+    "yml": ".yaml",
+    "toml": ".toml",
+    "ini": ".ini",
+    "env": ".env",
+    "sh": ".sh",
+    "bash": ".sh",
+    "shell": ".sh",
+    "zsh": ".sh",
+    "ps1": ".ps1",
+    "powershell": ".ps1",
+    "go": ".go",
+    "rust": ".rs",
+    "rs": ".rs",
+    "java": ".java",
+    "kotlin": ".kt",
+    "kt": ".kt",
+    "c": ".c",
+    "cpp": ".cpp",
+    "c++": ".cpp",
+    "cs": ".cs",
+    "csharp": ".cs",
+    "rb": ".rb",
+    "ruby": ".rb",
+    "php": ".php",
+    "swift": ".swift",
+    "sql": ".sql",
+    "html": ".html",
+    "css": ".css",
+    "scss": ".scss",
+    "vue": ".vue",
+}
+
 # 无扩展名但有意义的文件名 -> 复用哪个语言定义
 NAME_LANGS = {
     "Dockerfile": ".sh",
@@ -160,13 +233,13 @@ def _fenced_spans(text: str, fences: Sequence[str]) -> List[Span]:
     「这是示例输出，不是代码」，按 PROSE 处理，否则 README 里的终端截图
     会被自己报一堆错。
     """
-    spans: List[Span] = []
+    blocks: List[tuple] = []  # (kind, start, end, tag)
     lines = text.splitlines(keepends=True)
     offset = 0
     inside = False
     block_start = 0
-    fence = ""
     block_kind = CODE
+    tag = ""
 
     for line in lines:
         stripped = line.lstrip()
@@ -174,25 +247,39 @@ def _fenced_spans(text: str, fences: Sequence[str]) -> List[Span]:
         if marker is not None:
             info = stripped[len(marker) :].strip()
             if not inside:
-                if offset > block_start:
-                    spans.append(Span(PROSE, block_start, offset))
                 inside = True
-                fence = marker
-                lang_tag = info.split()[0].lower().strip("{}.,") if info else ""
-                block_kind = PROSE if lang_tag in NON_CODE_FENCES else CODE
+                tag = info.split()[0].lower().strip("{}.,") if info else ""
+                block_kind = PROSE if tag in NON_CODE_FENCES else CODE
                 block_start = offset + len(line)
             elif not info:
-                spans.append(Span(block_kind, block_start, offset))
+                blocks.append((block_kind, block_start, offset, tag))
                 inside = False
                 block_start = offset + len(line)
         offset += len(line)
 
     if inside:
         # 未闭合的围栏，按声明类型处理到文末
-        spans.append(Span(block_kind, block_start, len(text)))
-    elif block_start < len(text):
-        spans.append(Span(PROSE, block_start, len(text)))
+        blocks.append((block_kind, block_start, len(text), tag))
 
+    spans: List[Span] = []
+    cursor = 0
+    for kind, start, end, block_tag in blocks:
+        if start > cursor:
+            spans.append(Span(PROSE, cursor, start))
+        if kind == CODE and block_tag in TAG_LANGS:
+            # 围栏内再用声明的语言切一次，否则 bash 块里的 # 注释会被当成代码
+            inner = get_lang("x" + TAG_LANGS[block_tag])
+            if inner is not None and not inner.prose:
+                for sub in tokenize(text[start:end], inner):
+                    spans.append(Span(sub.kind, start + sub.start, start + sub.end))
+            else:
+                spans.append(Span(CODE, start, end))
+        else:
+            spans.append(Span(kind, start, end))
+        cursor = end
+
+    if cursor < len(text):
+        spans.append(Span(PROSE, cursor, len(text)))
     if not spans:
         spans.append(Span(PROSE, 0, len(text)))
     return spans

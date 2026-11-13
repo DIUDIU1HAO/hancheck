@@ -8,10 +8,6 @@
 
 from __future__ import annotations
 
-import os
-
-import pytest
-
 from hancheck.fix import apply_text, collect
 from hancheck.lexer import get_lang
 from hancheck.rules import check_text, id_checksum_ok, luhn_ok
@@ -182,3 +178,25 @@ def test_fix_multiple_fullwidth_punct():
     findings = scan(text)
     fixed = apply_text(text, collect(findings))
     assert fixed == 'd = {"a": 1,"b": 2}\n'
+
+
+# --------------------------------------------------------------------------- #
+# 宽松格式：YAML / HTML 中的正文标点
+# --------------------------------------------------------------------------- #
+def test_yaml_description_with_cjk_punct_is_info():
+    findings = scan("description: 检查标点、编码与敏感信息\n", ".yaml")
+    hits = [f for f in findings if f.rule == "CN001"]
+    assert hits and all(f.severity == "info" for f in hits)
+    assert not any(f.fixable for f in hits)
+
+
+def test_python_still_strict_and_fixable():
+    findings = scan("d = {'a': 1、'b': 2}\n")
+    hits = [f for f in findings if f.rule == "CN001"]
+    assert hits and hits[0].severity == "error" and hits[0].fixable
+
+
+def test_markdown_bash_fence_comment_not_identifier():
+    text = "```bash\nhancheck .   # 全量体检\n```\n"
+    findings = scan(text, ".md")
+    assert "CN010" not in rules_of(findings)

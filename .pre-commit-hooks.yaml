@@ -1,6 +1,6 @@
 - id: hancheck
   name: hancheck 中文代码体检
-  description: 检查全角标点、零宽字符、GBK 编码与硬编码敏感信息
+  description: 检查全角标点 / 零宽字符 / GBK 编码 / 硬编码敏感信息
   entry: hancheck
   language: python
   pass_filenames: true

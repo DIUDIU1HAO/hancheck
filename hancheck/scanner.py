@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Iterator, List, Optional, Sequence
 
 from .lexer import Lang, get_lang
-from .rules import ERROR, WARNING, Finding, RuleMeta
+from .rules import ERROR, WARNING, Finding
 
 MAX_BYTES = 2 * 1024 * 1024
 
