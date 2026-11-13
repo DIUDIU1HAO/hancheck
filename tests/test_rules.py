@@ -200,3 +200,11 @@ def test_markdown_bash_fence_comment_not_identifier():
     text = "```bash\nhancheck .   # 全量体检\n```\n"
     findings = scan(text, ".md")
     assert "CN010" not in rules_of(findings)
+
+
+def test_markdown_python_fence_keeps_strict_severity():
+    """Markdown 本身宽松，但围栏里的 Python 代码必须按 error 判定。"""
+    text = "```python\nd = {'a': 1，'b': 2}\n```\n"
+    findings = scan(text, ".md")
+    hits = [f for f in findings if f.rule == "CN001"]
+    assert hits and hits[0].severity == "error"

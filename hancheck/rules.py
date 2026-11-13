@@ -336,7 +336,8 @@ def check_text(text: str, path: str, lang: Lang) -> List[Finding]:
         # ---- CN001 / CN011：只在代码结构区域判定 ----------------------------
         if kind == CODE:
             # 宽松格式（YAML/HTML 等）里的全角标点可能属于正文，只提示不修复
-            strict = lang.punct_severity == "error"
+            strict = span.strict
+            punct_sev = "error" if strict else "info"
             for i, ch in enumerate(segment):
                 if ch in FULLWIDTH_PUNCT:
                     findings.append(
@@ -348,7 +349,7 @@ def check_text(text: str, path: str, lang: Lang) -> List[Finding]:
                             base + i,
                             f"全角「{ch}」不能作为语法符号使用",
                             edit=(base + i, 1, FULLWIDTH_PUNCT[ch]) if strict else None,
-                            severity=lang.punct_severity,
+                            severity=punct_sev,
                         )
                     )
                 elif ch in MANUAL_PUNCT:
@@ -360,7 +361,7 @@ def check_text(text: str, path: str, lang: Lang) -> List[Finding]:
                             index,
                             base + i,
                             f"全角「{ch}」出现在代码结构中，需人工确认",
-                            severity=lang.punct_severity,
+                            severity=punct_sev,
                         )
                     )
                 elif _is_fullwidth_alnum(ch):
@@ -373,7 +374,7 @@ def check_text(text: str, path: str, lang: Lang) -> List[Finding]:
                             base + i,
                             f"全角字符「{ch}」出现在代码结构中",
                             edit=(base + i, 1, chr(ord(ch) - 0xFEE0)) if strict else None,
-                            severity=lang.punct_severity,
+                            severity=punct_sev,
                         )
                     )
 
@@ -414,7 +415,7 @@ def check_text(text: str, path: str, lang: Lang) -> List[Finding]:
                     run = 1
                     while i + run < len(segment) and segment[i + run] == FULLWIDTH_SPACE:
                         run += 1
-                    label = f"连续 {run} 个全角空格" if run > 1 else "全角空格 U+3000"
+                    label = f"连续 {run} 个全角空格" if run > 1 else "全角空格（U+3000）"
                     findings.append(
                         _mk(
                             "CN003",
@@ -485,7 +486,7 @@ def check_text(text: str, path: str, lang: Lang) -> List[Finding]:
                     )
 
         # ---- CN010：中文标识符 ---------------------------------------------
-        if kind == CODE and lang.cjk_identifiers:
+        if kind == CODE and span.cjk_ident:
             for m in IDENT_RE.finditer(segment):
                 name = m.group(0)
                 if not CJK_RE.search(name):

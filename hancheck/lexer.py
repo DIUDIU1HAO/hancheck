@@ -41,11 +41,18 @@ NON_CODE_FENCES = {
 
 @dataclass(frozen=True)
 class Span:
-    """一段具有统一语义的区域，使用半开区间 [start, end)。"""
+    """一段具有统一语义的区域，使用半开区间 [start, end)。
+
+    strict / cjk_ident 记录这段区域**自身**的判定策略：Markdown 是宽松格式，
+    但它 ```python 围栏里的代码必须按 Python 的严格标准判定，
+    因此策略必须随区域走，而不能只看文件级语言。
+    """
 
     kind: str
     start: int
     end: int
+    strict: bool = True
+    cjk_ident: bool = True
 
 
 @dataclass(frozen=True)
@@ -271,7 +278,9 @@ def _fenced_spans(text: str, fences: Sequence[str]) -> List[Span]:
             inner = get_lang("x" + TAG_LANGS[block_tag])
             if inner is not None and not inner.prose:
                 for sub in tokenize(text[start:end], inner):
-                    spans.append(Span(sub.kind, start + sub.start, start + sub.end))
+                    spans.append(
+                        Span(sub.kind, start + sub.start, start + sub.end, sub.strict, sub.cjk_ident)
+                    )
             else:
                 spans.append(Span(CODE, start, end))
         else:
@@ -290,9 +299,12 @@ def tokenize(text: str, lang: Lang) -> List[Span]:
     if lang.prose:
         return _fenced_spans(text, lang.fences)
 
+    strict = lang.punct_severity == "error"
+    cjk = lang.cjk_identifiers
+
     delims = sorted(lang.delims, key=lambda d: -len(d.start))
     if not delims:
-        return [Span(CODE, 0, len(text))]
+        return [Span(CODE, 0, len(text), strict, cjk)]
 
     spans: List[Span] = []
     n = len(text)
@@ -310,7 +322,7 @@ def tokenize(text: str, lang: Lang) -> List[Span]:
             continue
 
         if code_start < i:
-            spans.append(Span(CODE, code_start, i))
+            spans.append(Span(CODE, code_start, i, strict, cjk))
 
         j = i + len(matched.start)
         while j < n:
@@ -323,12 +335,12 @@ def tokenize(text: str, lang: Lang) -> List[Span]:
             j += 1
         j = min(j, n)
 
-        spans.append(Span(matched.kind, i, j))
+        spans.append(Span(matched.kind, i, j, strict, cjk))
         i = j
         code_start = i
 
     if code_start < n:
-        spans.append(Span(CODE, code_start, n))
+        spans.append(Span(CODE, code_start, n, strict, cjk))
     return spans
 
 
