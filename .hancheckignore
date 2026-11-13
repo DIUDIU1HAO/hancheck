@@ -1,0 +1,13 @@
+# hancheck 忽略列表，语法与 .gitignore 类似
+
+# README 里为了演示，故意放了真实的全角字符示例，
+# 这些示例本身就是要被抓出来的"坏样本"，不应算作仓库问题。
+README.md
+README.en.md
+CONTRIBUTING.md
+
+# 文档站与设计稿
+docs/
+
+# 测试固化样本（含刻意构造的坏数据）
+tests/
