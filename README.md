@@ -37,7 +37,7 @@
 ## 五秒上手
 
 ```bash
-pip install hancheck
+pip install git+https://github.com/DIUDIU1HAO/hancheck.git
 
 hancheck .            # 体检当前项目
 hancheck --fix .      # 修掉能安全修的部分
@@ -111,7 +111,7 @@ YAML / TOML / HTML 这类允许裸标量的格式也做了降级：`description:
 ```yaml
 - name: hancheck
   run: |
-    pip install hancheck
+    pip install git+https://github.com/DIUDIU1HAO/hancheck.git
     hancheck --fail-level warning .
 ```
 
