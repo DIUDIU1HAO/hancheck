@@ -25,7 +25,7 @@ That region-awareness is why you can run `hancheck .` on a large Chinese repo an
 ## Install
 
 ```bash
-pip install hancheck
+pip install git+https://github.com/DIUDIU1HAO/hancheck.git
 hancheck .
 ```
 
@@ -63,7 +63,7 @@ Exit codes: `0` clean, `1` threshold reached, `2` bad arguments.
 GitHub Actions:
 
 ```yaml
-- run: pip install hancheck && hancheck --fail-level warning .
+- run: pip install git+https://github.com/DIUDIU1HAO/hancheck.git && hancheck --fail-level warning .
 ```
 
 ## License
