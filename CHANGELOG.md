@@ -14,7 +14,8 @@
 - 宽松格式分级：YAML / TOML / INI / HTML / CSS 中允许裸标量，全角标点降为 `info` 且不参与自动修复。
 - 安全自动修复：`--fix` 仅处理语义确定的字符，一次收敛。
 - 三种输出：终端（CJK 宽度对齐）、JSON、自包含 HTML 报告。
-- `.hancheckignore` 与 `--exclude` 排除机制。
+- `.hancheckignore` 与 `--exclude` 排除机制；`--no-ignore` 可绕过忽略规则强制检查。
+- 仓库内置 `examples/` 故意写坏的样例，便于快速验证效果。
 - 优先使用 `git ls-files` 发现文件，天然遵循 `.gitignore`。
 - Agent Skill 封装（`skills/hancheck/`），可被支持 Agent Skills 的客户端直接调用。
 - 零第三方依赖，Python 3.8+。

@@ -42,6 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--select", metavar="RULES", help="只启用指定规则，如 CN001,CN007")
     p.add_argument("--ignore", metavar="RULES", help="忽略指定规则")
     p.add_argument("--exclude", action="append", default=[], metavar="GLOB", help="排除匹配的文件")
+    p.add_argument("--no-ignore", action="store_true", help="忽略 .hancheckignore，强制检查全部文件")
     p.add_argument("--fail-level", default="error", choices=list(FAIL_LEVELS), help="退出码阈值，默认 error")
     p.add_argument("--no-color", action="store_true", help="禁用彩色输出")
     p.add_argument("-v", "--verbose", action="store_true", help="显示全部问题（默认每个文件最多 20 条）")
@@ -97,7 +98,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     targets = args.paths or ["."]
-    sources = list(iter_sources(targets, args.exclude))
+    sources = list(iter_sources(targets, args.exclude, not args.no_ignore))
     if not sources:
         print("hancheck: 没有找到可检查的文件", file=sys.stderr)
         return 2
@@ -120,7 +121,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         fixed_files = list(report)
         if report:
             # 修复后重新扫描，报告剩余问题
-            sources = list(iter_sources(targets, args.exclude))
+            sources = list(iter_sources(targets, args.exclude, not args.no_ignore))
             findings = []
             for source in sources:
                 findings.extend(source.findings)

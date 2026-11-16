@@ -221,9 +221,11 @@ def matches(path: str, patterns: Sequence[str]) -> bool:
     return False
 
 
-def iter_sources(targets: Sequence[str], excludes: Sequence[str] = ()) -> Iterator[SourceFile]:
+def iter_sources(
+    targets: Sequence[str], excludes: Sequence[str] = (), use_ignore: bool = True
+) -> Iterator[SourceFile]:
     dirs = ["."] + [t for t in targets if os.path.isdir(t)]
-    patterns = list(excludes) + load_ignore(dirs)
+    patterns = list(excludes) + (load_ignore(dirs) if use_ignore else [])
 
     for display, abspath in discover(targets):
         if patterns and matches(display, patterns):

@@ -208,3 +208,26 @@ def test_markdown_python_fence_keeps_strict_severity():
     findings = scan(text, ".md")
     hits = [f for f in findings if f.rule == "CN001"]
     assert hits and hits[0].severity == "error"
+
+
+def test_no_ignore_flag_bypasses_hancheckignore(tmp_path):
+    """显式指定路径时，--no-ignore 必须能强制检查被忽略的文件。"""
+    from hancheck.scanner import iter_sources
+
+    (tmp_path / ".hancheckignore").write_text("examples/\n", encoding="utf-8")
+    demo = tmp_path / "examples"
+    demo.mkdir()
+    (demo / "bad.py").write_text("d = {'a': 1，'b': 2}\n", encoding="utf-8")
+
+    import os
+
+    cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        skipped = [s for s in iter_sources(["examples"])]
+        forced = [s for s in iter_sources(["examples"], use_ignore=False)]
+    finally:
+        os.chdir(cwd)
+
+    assert skipped == []
+    assert len(forced) == 1
